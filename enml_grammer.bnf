@@ -1,0 +1,30 @@
+<document> ::= (<text> | <escaped_tag> | <reference> | <tag_with_attributes> | <tag>)*
+
+<text> ::= /[^\[]/+
+
+<escaped_tag> ::= '[/' (<escaped_tag> | <reference> | <tag_with_attributes> | <tag> | <target_text>)* <close>
+
+<reference> ::= <open> <reference_number> <optional_whitespace> (<escaped_tag> | <reference> | <tag_with_attributes> | <tag> | <target_text>)* <close>
+
+<tag_with_attributes> ::= <open> <tag_name> <optional_whitespace> <attribute_list> <optional_whitespace> (<escaped_tag> | <reference> | <tag_with_attributes> | <tag> | <target_text>)* <close>
+
+<tag> ::= <open> <tag_name> <optional_whitespace> (<escaped_tag> | <reference> | <tag_with_attributes> | <tag> | <target_text>)* <close>
+
+<open> ::= '[' <optional_whitespace>
+<close> ::= <optional_whitespace> ']'
+
+<reference_number> ::= /[0-9]/+ ':'
+
+<tag_name> ::= <name> ':'
+
+<name> ::= /[A-Za-z0-9_-]/+
+
+<attribute_list> ::= <attribute>*
+
+<attribute> ::= <optional_whitespace> <name> <optional_whitespace> '=' <optional_whitespace> <quoted_value>
+
+<quoted_value> ::= /'|"[^'"]+'|"/
+
+<target_text> ::= /[^\]\[]/+
+
+<optional_whitespace> ::= /\s/*
