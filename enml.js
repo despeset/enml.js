@@ -1,7 +1,127 @@
 ENML = {};
-ENML.grammer = function Grammer(name, options){
+
+// Parser takes enml through #parse and returns a node tree.
+ENML.parser = function Parser(){
+  var p = this;
+  var _i, _builder, _buffer = [];
+  var _inside = "text";
+  var syn = {
+    open: /^[\s]*\[/,
+    closed: /^[\s]*]/,
+    name: /^[\s]*([A-Za-z0-9_-]+):/,
+    attr: /^[\s]*([A-Za-z0-9_-]+)[\s]*=[\s]*('[^']+'|"[^"]")/, 
+    text: /^[\s]*[^\]\[]+/,
+    reference: /^[\s]*([0-9]+):/
+  };
+  
+  function Node(val, label, parent){
+    var n = this;
+    n.parent = parent;
+    n.children = [];
+    n.children.each = function(fn){ var u = this.length; for(var i=0;i<u;i++){ fn(this[i]); }};
+    n.is = label;
+    n.val = val;
+    // n.text = function(){
+    //   ret = n.val;
+    //   n.children.each(function(child){
+    //     ret += child.text();
+    //   })
+    //   return ret;
+    // }
+    n.attr = {};
+  };
+  
+  
+  function Builder(){
+    var t = this,
+    current_node = new Node('', 'root', null);
+    
+    t.root = current_node;
+    
+    t.open = function(name){
+      node = new Node(name, 'tag', current_node);
+      current_node.children.push(node);
+      current_node = node;
+    }
+
+    t.set = function(key, val){
+      current_node.is = "attr_tag";
+      current_node.attr[key] = val;
+    }
+    
+    t.add = function(content){
+      current_node.children.push(new Node(content, 'text', current_node));
+    }
+    
+    t.close = function(){
+      if(current_node.parent){
+        current_node = current_node.parent;
+      }
+    }
+    
+  };
+  
+  function _next(){
+    var open = _buffer.match(syn.open);
+    var closed = _buffer.match(syn.closed);
+    var ret = false;
+    if(open) { ret = open; ret.open = true; }
+    if(closed) { ret = closed; ret.open = false; }
+    return ret;
+  }
+  
+  function _consume(){
+    var text = _buffer.match(syn.text);
+    if(text){
+      _builder.add(text[0]);
+      _buffer = _buffer.substring(text[0].length);
+    }
+    var tag = _next();
+    if(tag){ // enml found
+      if(tag.open){
+        _buffer = _buffer.substring(tag[0].length);
+        var name = _buffer.match(syn.name);
+        if(name){
+          _builder.open(name[1]);
+          _buffer = _buffer.substring(name[0].length);
+          var looking = true;
+          while(looking){
+            var attr = _buffer.match(syn.attr);
+            if(attr){
+              _builder.set(attr[1],attr[2].substring(1,attr[2].length-1));
+              _buffer = _buffer.substring(attr[0].length);
+            }
+            else looking = false;
+          }
+        }
+        else { } // error        
+      }
+      else { // closing tag
+        _builder.close();
+        _buffer = _buffer.substring(tag[0].length);
+      }
+    }
+    else{ // no more enml code
+      _buffer = false; // kill the buffer
+    }
+  };
+  
+  p.parse = function(enml){
+    _buffer = enml;
+    _builder = new Builder();
+    while(_buffer){
+      _consume();
+    }
+    return _builder.root.children;
+  };
+  
+};
+
+// Grammar defines, interfaces with and renders a DSL.
+ENML.grammar = function Grammar(name, options){
   
   var g = this,
+    _parser = new ENML.parser(),
     _options = {
       output: 'html',
       knows: 'h1, h2, h3, h4, h5, header, section, footer',
@@ -14,25 +134,32 @@ ENML.grammer = function Grammer(name, options){
     
   g.name = name;
   // $.extend(_options, options, true); //TODO: make this happen without jQuery.
-  g.definitions = [];
+  g.definitions = {};
+  // g.definitions.each = function(fun){ var u = this.length; for(var i=0; i<u; i++){ fun(this[i]); } return this };
   g.state = 'uninitialized';
-      
+        
   function definition(tagname){
     this.name = tagname;
     this.attr = {};
     this.template = "";
     this.force = false;
+    this.aliases = [];
   };
   
   function _define_indefinite(){
-    var u = g.definitions.length,
-        exists = false;
-    for(var i=0;i<u;i++){ exists = (g.definitions[i].name == g.indefinite.name) ? i : exists ; };
-    if(typeof exists == 'number'){
-      if(g.indefinite.force) g.definitions[exists] = g.indefinite;
+    if(typeof g.definitions[g.indefinite.name] != 'undefined'){
+      if(g.indefinite.force) g.definitions[g.indefinite.name] = g.indefinite ;
     }
-    else g.definitions.push(g.indefinite);
-    g.indefinite = null;
+    else g.definitions[g.indefinite.name] = g.indefinite;
+    
+    // var u = g.definitions.length,
+    //     exists = false;
+    // g.definitions.each(function(def, i){ exists = (def.name == g.indefinite.name) ? i : exists; };
+    // if(typeof exists == 'number'){
+    //   if(g.indefinite.force) g.definitions[exists] = g.indefinite;
+    // }
+    // else g.definitions.push(g.indefinite);
+    // g.indefinite = null;
   };
   
   function _state(){
@@ -48,6 +175,7 @@ ENML.grammer = function Grammer(name, options){
   g.define = function(tagname){
     _state('defining');
     g.indefinite = new definition(tagname);
+    if(arguments > 1) g.indefinite.aliases = arguments.slice(1);
     
     return g;
   };
@@ -59,12 +187,18 @@ ENML.grammer = function Grammer(name, options){
     return g;
   }
   
-  g.and = function(attr){
+  g.plus = function(attr){
     _assert_state('defining');
     g.indefinite.attr = attr;
     
     return g;
-  };
+  }
+  
+  // use for pluralized rules
+  
+  // g.and = function(attr){
+  //
+  // };
   
   _callbacks.exiting.defining = function(){
     _define_indefinite();
@@ -85,5 +219,31 @@ ENML.grammer = function Grammer(name, options){
     
     return g;
   }
+  
+  g.parse = function(enml){
+    return render(_parser.parse(enml));
+  };
+  
+  function render(nodes){
+    var o = "";
+    nodes.each(function(child){
+      switch(child.is){
+        case "text":
+          o += child.val;
+          break;
+        case "tag":
+          o += g.definitions[child.val].template.replace('%TC', render(child.children));
+          break;
+        case "attr_tag":
+          var r = g.definitions[child.val].template.replace('%TC', render(child.children));
+          for(arg in child.attr){
+            r = r.replace("%"+arg.toUpperCase(), child.attr[arg]);
+          }
+          o += r;
+          break;
+      }
+    });
+    return o;
+  };
 
 }
