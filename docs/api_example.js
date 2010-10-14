@@ -1,4 +1,4 @@
-mydsl = new ENML.grammer('My Domain Specific Language', { output: 'html', knows: 'header', 'h1', 'footer', 'aside', error_template: '<div class="mydslerror"><h1>Error</h1><p>%MESSAGE</p></div>' });
+mydsl = new ENML.grammar('MyDsl');
 
 mydsl
   .define('foo')
@@ -12,7 +12,7 @@ mydsl
       // [blue: stuff] => "<span class='blue'>stuff</span>"
   
   .define('chapter')
-    .plus({ title: '' })
+    .plus('title')
     .as('<section class="chapter"><header><h1>%TITLE</h1></header><p>%TC</p></section>')
       // [chapter: title='Meanwhile...' Once upon a time in the west, etc.]
       // => "<section class="chapter"><header><h1>Meanwhile...</h1></header><p>Once upon a time in the west, etc.</p></section>"
@@ -36,11 +36,5 @@ mydsl
         valid: ['left', 'right']
       }})
     .as(function(context, args){
-      return (context.images.length <= args.image_number) ? 
-        '<div class="fig %POSITION">
-            <img src="'+context.images[args.image_number-1]+'" />
-            <span class="caption">%CAPTION</span>
-            <span class="copyright">%COPYRIGHT</span>
-          </div>'
-        : mydsl.addError('Could not find '+args.image_number+'');
-    });
+      return (context.images.length <= args.image_number) ? '<div class="fig %POSITION"><img src="'+context.images[args.image_number-1]+'" /><span class="caption">%CAPTION</span><span class="copyright">%COPYRIGHT</span></div>' : mydsl.addError('Could not find '+args.image_number+'');
+    }); 
