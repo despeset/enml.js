@@ -1,18 +1,27 @@
-ENML = {};
+ENML = { 
+  crappy_extend: function(sewer, flush){ 
+    // recursive = (typeof recursive != 'undefined') ? recursive : false ; // ha ha.
+    for(crap in flush){
+      sewer[crap] = flush[crap];
+    }
+  }
+};
 
 // Parser takes enml through #parse and returns a node tree.
 ENML.parser = function Parser(){
-  var p = this;
-  var _i, _builder, _buffer = [];
-  var _inside = "text";
-  var syn = {
-    open: /^[\s]*\[/,
-    closed: /^[\s]*]/,
-    name: /^[\s]*([A-Za-z0-9_-]+):/,
-    attr: /^[\s]*([A-Za-z0-9_-]+)[\s]*=[\s]*('[^']+'|"[^"]")/, 
-    text: /^[\s]*[^\]\[]+/,
-    reference: /^[\s]*([0-9]+):/
-  };
+  var p = this, 
+      _builder, 
+      _buffer = [],
+      syn = {
+        open: /^[\s]*\[/,
+        closed: /^[\s]*]/,
+        name: /^[\s]*([A-Za-z0-9_-]+):/,
+        attr: /^[\s]*([A-Za-z0-9_-]+)[\s]*=[\s]*('[^']+'|"[^"]")/, 
+        text: /^[\s]*[^\]\[]+/,
+        reference: /^[\s]*([0-9]+):/
+      };
+      
+  if(arguments.length > 0) ENML.crappy_extend(syn, arguments[0]);
   
   function Node(val, label, parent){
     var n = this;
@@ -31,29 +40,28 @@ ENML.parser = function Parser(){
     n.attr = {};
   };
   
-  
   function Builder(){
-    var t = this,
+    var b = this,
     current_node = new Node('', 'root', null);
     
-    t.root = current_node;
+    b.root = current_node;
     
-    t.open = function(name){
+    b.open = function(name){
       node = new Node(name, 'tag', current_node);
       current_node.children.push(node);
       current_node = node;
     }
 
-    t.set = function(key, val){
+    b.set = function(key, val){
       current_node.is = "attr_tag";
       current_node.attr[key] = val;
     }
     
-    t.add = function(content){
+    b.add = function(content){
       current_node.children.push(new Node(content, 'text', current_node));
     }
     
-    t.close = function(){
+    b.close = function(){
       if(current_node.parent){
         current_node = current_node.parent;
       }
@@ -115,6 +123,10 @@ ENML.parser = function Parser(){
     return _builder.root.children;
   };
   
+  p.inspect = function(){
+    return syn;
+  };
+  
 };
 
 // Grammar defines, interfaces with and renders a DSL.
@@ -139,11 +151,12 @@ ENML.grammar = function Grammar(name, options){
   g.state = 'uninitialized';
         
   function definition(tagname){
-    this.name = tagname;
-    this.attr = {};
-    this.template = "";
-    this.force = false;
-    this.aliases = [];
+    var d = this;
+    d.name = tagname;
+    d.attr = {};
+    d.template = "";
+    d.force = false;
+    d.aliases = [];
   };
   
   function _define_indefinite(){
@@ -170,6 +183,16 @@ ENML.grammar = function Grammar(name, options){
   
   function _assert_state(state_name){
     return (_state != state_name) ? false : true ;
+  };
+  
+  g.parser = function(){ return _parser; }
+  
+  g.syntax = function(open_code, close_code){
+    _parser = new ENML.parser({ open: new RegExp("^[\\s]*"+open_code),
+                                closed: new RegExp("^[\\s]*"+close_code),
+                                text: new RegExp("^[\\s]*"+"[^"+open_code+close_code+"]*") });
+    
+    return g.parse("Testing!");
   };
   
   g.define = function(tagname){
