@@ -1,6 +1,7 @@
 ENML = { 
   crappy_extend: function(sewer, flush){ 
     // recursive = (typeof recursive != 'undefined') ? recursive : false ; // ha ha.
+    if(typeof flush == 'undefined') return false;
     for(crap in flush){
       sewer[crap] = flush[crap];
     }
@@ -17,7 +18,7 @@ ENML.parser = function Parser(){
         closed: /^[\s]*]/,
         name: /^[\s]*([A-Za-z0-9_-]+):/,
         attr: /^[\s]*([A-Za-z0-9_-]+)[\s]*=[\s]*('[^']+'|"[^"]")/, 
-        text: /^[\s]*[^\]\[]+/,
+        text: /^[\s]*([^\]\[]+)/,
         reference: /^[\s]*([0-9]+):/
       };
       
@@ -81,8 +82,8 @@ ENML.parser = function Parser(){
   function _consume(){
     var text = _buffer.match(syn.text);
     if(text){
-      _builder.add(text[0]);
-      _buffer = _buffer.substring(text[0].length);
+      _builder.add(text[1]);
+      _buffer = _buffer.substring(text[1].length);
     }
     var tag = _next();
     if(tag){ // enml found
@@ -145,7 +146,7 @@ ENML.grammar = function Grammar(name, options){
     };
     
   g.name = name;
-  // $.extend(_options, options, true); //TODO: make this happen without jQuery.
+  ENML.crappy_extend(_options, options); //TODO: make this happen without jQuery.
   g.definitions = {};
   // g.definitions.each = function(fun){ var u = this.length; for(var i=0; i<u; i++){ fun(this[i]); } return this };
   g.state = 'uninitialized';
@@ -230,6 +231,7 @@ ENML.grammar = function Grammar(name, options){
   g.as = function(template){
     _assert_state('defining');
     g.indefinite.template = template;
+    
     _state('ready');
     
     return g;
@@ -237,7 +239,7 @@ ENML.grammar = function Grammar(name, options){
   
   g.as.cssProxy = function(html_tag){
     _assert_state('defining');
-    g.indefinite.template = "<"+html_tag+" class='"+g.indefinite.name+"'>%TC</+'"+html_tag+">";
+    g.indefinite.template = "<"+html_tag+" class='"+g.indefinite.name+"'>%TC</"+html_tag+">";
     _state('ready');
     
     return g;
