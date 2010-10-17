@@ -19,11 +19,12 @@ ENML.parser = function Parser(){
         name: /^\s*([A-Za-z0-9_-]+):/,
         attr: /^\s*([A-Za-z0-9_-]+)\s*=\s*('[^']+'|"[^"]")/, 
         text: /^(\s*[^\]\[]+)/,
-        reference: /^\s*[0-9]+/
+        reference: /^\s*[0-9]+/,
+        escaped: /^\s*\[\s*\//
       };
       
-  if(arguments.length > 0) ENML.crappy_extend(syn, arguments[0]);
-  
+      if(arguments.length > 0) ENML.crappy_extend(syn, arguments[0]);
+        
   function Node(val, label, parent){
     var n = this;
     n.parent = parent;
@@ -31,13 +32,6 @@ ENML.parser = function Parser(){
     n.children.each = function(fn){ var u = this.length; for(var i=0;i<u;i++){ fn(this[i]); }};
     n.is = label;
     n.val = val;
-    // n.text = function(){
-    //   ret = n.val;
-    //   n.children.each(function(child){
-    //     ret += child.text();
-    //   })
-    //   return ret;
-    // }
     n.attr = {};
   };
   
@@ -50,6 +44,7 @@ ENML.parser = function Parser(){
     b.open = function(name){
       node = new Node(name, 'tag', current_node);
       if(name.match(syn.reference)) node.is = 'reference';
+      if(name == '__esc') node.is = 'escaped';
       current_node.children.push(node);
       current_node = node;
     }
@@ -71,56 +66,54 @@ ENML.parser = function Parser(){
     
   };
   
-  function _next(){
-    var open = _buffer.match(syn.open);
-    var closed = _buffer.match(syn.closed);
-    var ret = false;
-    if(open) { ret = open; ret.open = true; }
-    if(closed) { ret = closed; ret.open = false; }
-    return ret;
+  function step(s){
+    _buffer = _buffer.substring(s.length);
   }
   
-  function _consume(){
-    var text = _buffer.match(syn.text);
-    if(text){
-      _builder.add(text[1]);
-      _buffer = _buffer.substring(text[0].length);
-    }
-    var tag = _next();
-    if(tag){ // enml found
-      if(tag.open){
-        _buffer = _buffer.substring(tag[0].length);
-        var name = _buffer.match(syn.name);
-        if(name){
-          _builder.open(name[1]);
-          _buffer = _buffer.substring(name[0].length);
-          var looking = true;
-          while(looking){
-            var attr = _buffer.match(syn.attr);
-            if(attr){
-              _builder.set(attr[1],attr[2].substring(1,attr[2].length-1));
-              _buffer = _buffer.substring(attr[0].length);
-            }
-            else looking = false;
-          }
+  function on(key,fn1,fn2){
+    var m = _buffer.match(syn[key]);
+    if(m) fn1(m);
+    else if(typeof fn2 == 'function') fn2();
+  }
+  
+  function consume(){
+    on('text', function(m){
+      _builder.add(m[1]);
+      step(m[0]);
+    });
+    on('escaped', function(m){
+      _builder.open('__esc');
+      step(m[0]);
+    });
+    on('open', function(m){
+      step(m[0]);
+      on('name', function(n){
+        _builder.open(n[1]);
+        step(n[0]);
+        var collecting = true;
+        while(collecting){
+          on('attr', function(a){
+            _builder.set(a[1],a[2].substring(1,a[2].length-1));
+            step(a[0]);
+          }, function(){
+            collecting = false;
+          }); 
         }
-        else { } // error?
-      }
-      else { // closing tag
-        _builder.close();
-        _buffer = _buffer.substring(tag[0].length);
-      }
-    }
-    else{ // no more enml code
-      // _buffer = false; // kill the buffer
-    }
+      }, function(){
+        // error no name found.
+      });
+    });
+    on('closed', function(m){
+      _builder.close();
+      step(m[0]);
+    });
   };
   
   p.parse = function(enml){
     _buffer = enml;
     _builder = new Builder();
     while(_buffer){
-      _consume();
+      consume();
     }
     return _builder.root.children;
   };
@@ -132,43 +125,35 @@ ENML.parser = function Parser(){
 };
 
 // Grammar defines, interfaces with and renders a DSL.
-ENML.grammar = function Grammar(name, options){
-  
+ENML.grammar = function Grammar(name){
   var g = this,
     _parser = new ENML.parser(),
-    _options = {
-      output: 'html',
-      knows: 'h1, h2, h3, h4, h5, header, section, footer',
-      error_template: '<div class="enml_error_message"><h1>Error</h1><p>%MESSAGE</p></div>'
-    },
     _callbacks = {
       starting: {},
       exiting: {}
     };
 
-  function definition(tagname){
+  g.name = name;
+  g.state = 'uninitialized';
+  g.definitions = {};
+  
+  function Definition(tagname){
     var d = this;
     d.name = tagname;
     d.attr = {};
     d.template = "";
     d.force = false;
     d.aliases = [];
+    if(arguments.length > 1){
+      ENML.crappy_extend(d, arguments[1]);
+    }
   };
-
+  
   function _define_indefinite(){
     if(typeof g.definitions[g.indefinite.name] != 'undefined'){
       if(g.indefinite.force) g.definitions[g.indefinite.name] = g.indefinite ;
     }
     else g.definitions[g.indefinite.name] = g.indefinite;
-
-    // var u = g.definitions.length,
-    //     exists = false;
-    // g.definitions.each(function(def, i){ exists = (def.name == g.indefinite.name) ? i : exists; };
-    // if(typeof exists == 'number'){
-    //   if(g.indefinite.force) g.definitions[exists] = g.indefinite;
-    // }
-    // else g.definitions.push(g.indefinite);
-    // g.indefinite = null;
   };
 
   function _state(){
@@ -176,32 +161,26 @@ ENML.grammar = function Grammar(name, options){
     g.state = arguments[0];
     if(typeof _callbacks.starting[g.state] == 'function') _callbacks.starting[g.state]();
   };
+  
+  _callbacks.exiting.defining = function(){
+    _define_indefinite();
+  };
 
   function _assert_state(state_name){
     return (_state != state_name) ? false : true ;
   };
     
-  g.name = name;
-  ENML.crappy_extend(_options, options); //TODO: make this happen without jQuery.
-  var ref = new definition("__ref");
-  ref.template = "<a href='%REF'>%TC</a>";
-  g.definitions = { __ref: ref };
-  // g.definitions.each = function(fun){ var u = this.length; for(var i=0; i<u; i++){ fun(this[i]); } return this };
-  g.state = 'uninitialized';
-        
-  g.parser = function(){ return _parser; }
-  
   g.syntax = function(open_code, close_code){
-    _parser = new ENML.parser({ open: new RegExp("^[\\s]*"+open_code),
-                                closed: new RegExp("^[\\s]*"+close_code),
-                                text: new RegExp("^[\\s]*"+"[^"+open_code+close_code+"]*") });
-    
+    _parser = new ENML.parser({ 
+      open: new RegExp("^\\s*"+open_code),
+      closed: new RegExp("^\\s*"+close_code),
+      text: new RegExp("^(\\s*"+"[^"+open_code+close_code+"]+)") });
     return g;
   };
   
   g.define = function(tagname){
     _state('defining');
-    g.indefinite = new definition(tagname);
+    g.indefinite = new Definition(tagname);
     if(arguments > 1) g.indefinite.aliases = arguments.slice(1);
     
     return g;
@@ -221,10 +200,6 @@ ENML.grammar = function Grammar(name, options){
     return g;
   }
   
-  _callbacks.exiting.defining = function(){
-    _define_indefinite();
-  };
-  
   g.as = function(template){
     _assert_state('defining');
     g.indefinite.template = template;
@@ -243,7 +218,7 @@ ENML.grammar = function Grammar(name, options){
   };
   
   var sources = {};
-
+  
   g.parse = function(enml){
     sources = {};
     var nodes = _parser.parse(enml);
@@ -277,6 +252,9 @@ ENML.grammar = function Grammar(name, options){
         case "text":
           o += child.val;
           break;
+        case "escaped":
+          o += g.definitions.__esc.template.replace('%TC', trim(render(child.children)));
+          break;
         case "tag":
           o += g.definitions[child.val].template.replace('%TC', trim(render(child.children)));
           break;
@@ -297,5 +275,8 @@ ENML.grammar = function Grammar(name, options){
     
     return o;
   };
-
+  
+  g.define('__ref').as("<a href='%REF'>%TC</a>");
+  g.define('__esc').as("[%TC]");
+  
 }

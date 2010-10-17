@@ -129,12 +129,10 @@ describe('Enml Parser', function(){
     .toEqual("<div class='foo'>bar</div> <span class='bar'>foo</span>");
   });
   
-  //
-  // it "should parse tags with arbitrary whitespace" do
-  //   @formatter << Enml::ImageInterpreter.new({:name => "image", :attributes => { :source => 'null', :size => 'small' }})
-  //   @formatter.format("[ image:  size= 'large'       source    = 'http://www.example.com/images/test.jpg'     ]").should == "<img class='large' src='http://www.example.com/images/test.jpg' />"
-  // end
-  // 
+  it('should correctly parse escaped tags', function(){
+    expect(mydsl.parse("[/not a [foo: tag]]"))
+    .toEqual("[not a <div class='foo'>tag</div>]");
+  });
   // it "should correctly parse escaped brackets" do
   //   @formatter.format("This is escaped: [/something in brackets]").should == "This is escaped: [something in brackets]"
   // end
