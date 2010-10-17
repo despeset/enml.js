@@ -14,12 +14,12 @@ ENML.parser = function Parser(){
       _builder, 
       _buffer = [],
       syn = {
-        open: /^[\s]*\[/,
-        closed: /^[\s]*]/,
-        name: /^[\s]*([A-Za-z0-9_-]+):/,
-        attr: /^[\s]*([A-Za-z0-9_-]+)[\s]*=[\s]*('[^']+'|"[^"]")/, 
-        text: /^[\s]*([^\]\[]+)/,
-        reference: /^[\s]*([0-9]+):/
+        open: /^\s*\[/,
+        closed: /^\s*]/,
+        name: /^\s*([A-Za-z0-9_-]+):/,
+        attr: /^\s*([A-Za-z0-9_-]+)\s*=\s*('[^']+'|"[^"]")/, 
+        text: /^(\s*[^\]\[]+)/,
+        reference: /^\s*[0-9]+/
       };
       
   if(arguments.length > 0) ENML.crappy_extend(syn, arguments[0]);
@@ -49,6 +49,7 @@ ENML.parser = function Parser(){
     
     b.open = function(name){
       node = new Node(name, 'tag', current_node);
+      if(name.match(syn.reference)) node.is = 'reference';
       current_node.children.push(node);
       current_node = node;
     }
@@ -83,7 +84,7 @@ ENML.parser = function Parser(){
     var text = _buffer.match(syn.text);
     if(text){
       _builder.add(text[1]);
-      _buffer = _buffer.substring(text[1].length);
+      _buffer = _buffer.substring(text[0].length);
     }
     var tag = _next();
     if(tag){ // enml found
@@ -103,7 +104,7 @@ ENML.parser = function Parser(){
             else looking = false;
           }
         }
-        else { } // error        
+        else { } // error?
       }
       else { // closing tag
         _builder.close();
@@ -111,7 +112,7 @@ ENML.parser = function Parser(){
       }
     }
     else{ // no more enml code
-      _buffer = false; // kill the buffer
+      // _buffer = false; // kill the buffer
     }
   };
   
@@ -144,13 +145,7 @@ ENML.grammar = function Grammar(name, options){
       starting: {},
       exiting: {}
     };
-    
-  g.name = name;
-  ENML.crappy_extend(_options, options); //TODO: make this happen without jQuery.
-  g.definitions = {};
-  // g.definitions.each = function(fun){ var u = this.length; for(var i=0; i<u; i++){ fun(this[i]); } return this };
-  g.state = 'uninitialized';
-        
+
   function definition(tagname){
     var d = this;
     d.name = tagname;
@@ -159,13 +154,13 @@ ENML.grammar = function Grammar(name, options){
     d.force = false;
     d.aliases = [];
   };
-  
+
   function _define_indefinite(){
     if(typeof g.definitions[g.indefinite.name] != 'undefined'){
       if(g.indefinite.force) g.definitions[g.indefinite.name] = g.indefinite ;
     }
     else g.definitions[g.indefinite.name] = g.indefinite;
-    
+
     // var u = g.definitions.length,
     //     exists = false;
     // g.definitions.each(function(def, i){ exists = (def.name == g.indefinite.name) ? i : exists; };
@@ -175,17 +170,25 @@ ENML.grammar = function Grammar(name, options){
     // else g.definitions.push(g.indefinite);
     // g.indefinite = null;
   };
-  
+
   function _state(){
     if(typeof _callbacks.exiting[g.state] == 'function') _callbacks.exiting[g.state]();
     g.state = arguments[0];
     if(typeof _callbacks.starting[g.state] == 'function') _callbacks.starting[g.state]();
   };
-  
+
   function _assert_state(state_name){
     return (_state != state_name) ? false : true ;
   };
-  
+    
+  g.name = name;
+  ENML.crappy_extend(_options, options); //TODO: make this happen without jQuery.
+  var ref = new definition("__ref");
+  ref.template = "<a href='%REF'>%TC</a>";
+  g.definitions = { __ref: ref };
+  // g.definitions.each = function(fun){ var u = this.length; for(var i=0; i<u; i++){ fun(this[i]); } return this };
+  g.state = 'uninitialized';
+        
   g.parser = function(){ return _parser; }
   
   g.syntax = function(open_code, close_code){
@@ -193,7 +196,7 @@ ENML.grammar = function Grammar(name, options){
                                 closed: new RegExp("^[\\s]*"+close_code),
                                 text: new RegExp("^[\\s]*"+"[^"+open_code+close_code+"]*") });
     
-    return g.parse("Testing!");
+    return g;
   };
   
   g.define = function(tagname){
@@ -218,12 +221,6 @@ ENML.grammar = function Grammar(name, options){
     return g;
   }
   
-  // use for pluralized rules
-  
-  // g.and = function(attr){
-  //
-  // };
-  
   _callbacks.exiting.defining = function(){
     _define_indefinite();
   };
@@ -243,12 +240,36 @@ ENML.grammar = function Grammar(name, options){
     _state('ready');
     
     return g;
-  }
-  
-  g.parse = function(enml){
-    return render(_parser.parse(enml));
   };
   
+  var sources = {};
+
+  g.parse = function(enml){
+    sources = {};
+    var nodes = _parser.parse(enml);
+    var last = nodes.length-1;
+    if(nodes[last].is == 'reference'){
+      var collecting = true
+      while(collecting){
+        if(nodes[last].is == 'reference' && typeof sources['_'+nodes[last].val] == 'undefined'){
+          sources['_'+nodes[last].val] = nodes[last].children[0].val;
+          nodes[last].is = 'source';
+          last--;
+        }
+        else collecting = false;
+      }
+    }
+    return trim(render(nodes));
+  };
+
+  function trim(string){
+    r = string;
+    if(r.match(/^\s+|\s+$/g)){
+      r = r.replace(/^\s+|\s+$/g, '');
+    }
+    return r;
+  };
+
   function render(nodes){
     var o = "";
     nodes.each(function(child){
@@ -257,17 +278,23 @@ ENML.grammar = function Grammar(name, options){
           o += child.val;
           break;
         case "tag":
-          o += g.definitions[child.val].template.replace('%TC', render(child.children));
+          o += g.definitions[child.val].template.replace('%TC', trim(render(child.children)));
+          break;
+        case "reference":
+          o += g.definitions.__ref.template.replace('%TC', trim(render(child.children))).replace('%REF', trim(sources['_'+child.val]));
           break;
         case "attr_tag":
-          var r = g.definitions[child.val].template.replace('%TC', render(child.children));
+          var r = g.definitions[child.val].template.replace('%TC', trim(render(child.children)));
           for(arg in child.attr){
             r = r.replace("%"+arg.toUpperCase(), child.attr[arg]);
           }
           o += r;
           break;
+        case 'source':
+          break;
       }
     });
+    
     return o;
   };
 
