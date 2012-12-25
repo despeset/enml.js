@@ -1,10 +1,10 @@
 ENML = { 
-  crappy_extend: function(sewer, flush){ 
-    // recursive = (typeof recursive != 'undefined') ? recursive : false ; // ha ha.
-    if(typeof flush == 'undefined') return false;
-    for(crap in flush){
-      sewer[crap] = flush[crap];
+  shallowCopy: function(to, fr){ 
+    if( typeof to === 'undefined' || typeof fr === 'undefined' ) return false;
+    for(k in b){
+      a[k] = b[k];
     }
+    return a;
   }
 };
 
@@ -23,7 +23,7 @@ ENML.parser = function Parser(){
         escaped: /^\s*\[\s*\//
       };
       
-      if(arguments.length > 0) ENML.crappy_extend(syn, arguments[0]);
+      if(arguments.length > 0) ENML.shallowCopy(syn, arguments[0]);
         
   function Node(val, label, parent){
     var n = this;
@@ -70,29 +70,29 @@ ENML.parser = function Parser(){
     _buffer = _buffer.substring(s.length);
   }
   
-  function on(key,fn1,fn2){
+  function rule(key,fn1,fn2){
     var m = _buffer.match(syn[key]);
     if(m) fn1(m);
     else if(typeof fn2 == 'function') fn2();
   }
   
   function consume(){
-    on('text', function(m){
+    rule('text', function(m){
       _builder.add(m[1]);
       step(m[0]);
     });
-    on('escaped', function(m){
+    rule('escaped', function(m){
       _builder.open('__esc');
       step(m[0]);
     });
-    on('open', function(m){
+    rule('open', function(m){
       step(m[0]);
-      on('name', function(n){
+      rule('name', function(n){
         _builder.open(n[1]);
         step(n[0]);
         var collecting = true;
         while(collecting){
-          on('attr', function(a){
+          rule('attr', function(a){
             _builder.set(a[1],a[2].substring(1,a[2].length-1));
             step(a[0]);
           }, function(){
@@ -103,7 +103,7 @@ ENML.parser = function Parser(){
         // error no name found.
       });
     });
-    on('closed', function(m){
+    rule('closed', function(m){
       _builder.close();
       step(m[0]);
     });
