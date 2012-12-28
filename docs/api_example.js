@@ -1,5 +1,8 @@
 mydsl = new ENML.grammar('MyDsl');
 
+/**
+ * Chainable state machine definitions API
+ */
 mydsl
   .define('foo')
     .as.cssProxy('div') 
@@ -38,3 +41,32 @@ mydsl
     .as(function(context, args){
       return (context.images.length <= args.image_number) ? '<div class="fig %POSITION"><img src="'+context.images[args.image_number-1]+'" /><span class="caption">%CAPTION</span><span class="copyright">%COPYRIGHT</span></div>' : mydsl.addError('Could not find '+args.image_number+'');
     }); 
+
+/**
+ *  Mass assign definitions
+ */
+mydsl.define({
+    foo: '<div class="foo">%TC</div>'
+  , chapter: {
+      plus: { title: '' }
+    , as: '<section class="chapter"><header><h1>%TITLE</h1></header><p>%TC</p></section>'
+  }
+  , fig: {
+      plus: { 
+        image_number: { 
+            defaults_to: 0 
+          , valid: '/[0-9]{1,3}?/'
+          , error: 'Image number must be between 1 and 999.'
+        }
+        , caption: '', 
+        , copyright: '', 
+        , position: { 
+            defaults_to: 'left'
+          , valid: ['left', 'right']
+        }
+      }
+      , as: function(context, args){
+        return (context.images.length <= args.image_number) ? '<div class="fig %POSITION"><img src="'+context.images[args.image_number-1]+'" /><span class="caption">%CAPTION</span><span class="copyright">%COPYRIGHT</span></div>' : mydsl.addError('Could not find '+args.image_number+'');
+      }
+  }
+});
