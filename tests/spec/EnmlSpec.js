@@ -153,6 +153,11 @@ describe('Enml Parser', function(){
     .toEqual("<img src='#10' class='right' /><span>some image.</span>");
   });
   
+  it('should parse attributes with single or double quotes', function(){
+    expect(mydsl.parse("[image: image_number='10' position="+'"right"'+" some image.]"))
+    .toEqual("<img src='#10' class='right' /><span>some image.</span>");
+  });
+
   it('should parse functional tags with passed context', function(){
     expect(mydsl.parse("[fn_image: image_number='10' position='right' some image.]", { images: "abcdefghijklmnopqrstuvwxyz".split('') }))
     .toEqual("<img src='#k' class='right' /><span>some image.</span>");
