@@ -9,7 +9,20 @@ describe("Enml Grammar", function(){
     mydsl.define('foo').as("<div class='foo'>%TC</div>");
     expect(mydsl.definitions.foo.template).toEqual("<div class='foo'>%TC</div>");
   });
-  
+
+  it("should accept new tag definitions through a definition object", function(){
+    mydsl.define({
+        foo: "<div class='foo'>%TC</div>"
+      , bar: {
+          plus: { color: 'rgb(255,255,0)' }
+        , as: "<div class='bar' style='color:%COLOR;'>%TC</div>"
+      }
+    });
+    expect(mydsl.definitions.foo.template).toEqual("<div class='foo'>%TC</div>");
+    expect(mydsl.definitions.bar.template).toEqual("<div class='bar' style='color:%COLOR;'>%TC</div>");
+    expect(mydsl.definitions.bar.attr).toEqual({ color: 'rgb(255,255,0)' });
+  });
+
   it("should accept definitions through as.builders", function(){
     mydsl.define('foo').as.cssProxy('div')
     expect(mydsl.definitions.foo.template).toEqual("<div class='foo'>%TC</div>");
@@ -55,7 +68,15 @@ describe("Enml Grammar", function(){
     expect(mydsl.definitions.foo.template).toEqual('foo1');
     mydsl.define('foo').by_force().as('foo3');
     expect(mydsl.definitions.foo.template).toEqual('foo3');
-  })
+  });
+
+  it("should throw useful errors if definition methods are called out of order.", function(){
+    try{ 
+      mydsl.as('');
+    } catch( err ){
+      expect(err).toEqual("as was called but no ENML tag is being defined");      
+    }
+  });
   
 });
 
@@ -80,7 +101,21 @@ describe('Enml Parser', function(){
             defaults_to: 'left', 
             valid: ['left', 'right']
           }})
-        .as("<img src='#%IMAGE_NUMBER' class='%POSITION' /><span>%TC</span>");
+        .as("<img src='#%IMAGE_NUMBER' class='%POSITION' /><span>%TC</span>")
+      .define('fn_image')
+        .plus({ 
+          image_number: { 
+            defaults_to: 0, 
+            valid: '/[0-9]{1,3}?/', 
+            error: 'Image number must be between 1 and 999.'
+          },
+          position: { 
+            defaults_to: 'left', 
+            valid: ['left', 'right']
+          }})
+        .as(function(context, args){
+          return "<img src='#"+context.images[args.image_number]+"' class='"+args.position+"' /><span>"+args.tc+"</span>";
+        });
   });
   
   it('should parse normal text strings', function(){
@@ -118,6 +153,11 @@ describe('Enml Parser', function(){
     .toEqual("<img src='#10' class='right' /><span>some image.</span>");
   });
   
+  it('should parse functional tags with passed context', function(){
+    expect(mydsl.parse("[fn_image: image_number='10' position='right' some image.]", { images: "abcdefghijklmnopqrstuvwxyz".split('') }))
+    .toEqual("<img src='#k' class='right' /><span>some image.</span>");
+  });
+
   it('should correctly handle whitespace', function(){
     expect(mydsl.parse("    [    image:     image_number='10'        position='right'       some image.    ]    "))
     .toEqual("<img src='#10' class='right' /><span>some image.</span>");
@@ -133,43 +173,5 @@ describe('Enml Parser', function(){
     expect(mydsl.parse("[/not a [foo: tag]]"))
     .toEqual("[not a <div class='foo'>tag</div>]");
   });
-  // it "should correctly parse escaped brackets" do
-  //   @formatter.format("This is escaped: [/something in brackets]").should == "This is escaped: [something in brackets]"
-  // end
-  // 
-  // it "should correctly parse escaped brackets nested inside tags" do
-  //   @formatter.format("This is nested and escaped [red: [/something in brackets]]?").should == "This is nested and escaped <span class='red'>[something in brackets]</span>?"
-  // end
-  // 
-  // it "should correctly parse tags nested inside escaped brackets" do
-  //   @formatter.format("This [/bracketed text has a [red: tag]]").should == "This [bracketed text has a <span class='red'>tag</span>]"
-  // end
-  // 
-  // it "should parse complex tags with attributes and content with nested tags" do
-  //    @formatter << Enml::TemplatedInterpreter.new({:name => "banner", :template => "<div class='banner %position'>%tc</div>", :attributes => {:position => 'left'}})
-  //    @formatter.format("[banner: position='right' This [red: banner] is positioned right! ]").should == "<div class='banner right'>This <span class='red'>banner</span> is positioned right! </div>"
-  // end
-  // 
-  // it "should parse complex tags without attributes and use default values" do
-  //     @formatter << Enml::TemplatedInterpreter.new({:name => "banner", :template => "<div class='banner %position'>%tc</div>", :attributes => {:position => 'left'}})
-  //    @formatter.format("[banner: This [red: banner] is positioned left!]").should == "<div class='banner left'>This <span class='red'>banner</span> is positioned left!</div>"
-  // end
-  // 
-  // it "should parse lists" do
-  //   @formatter << Enml::ListInterpreter.new({:name => "list", :template => "<ul><h1>%title</h1>%tc</ul>", :attributes => {:title => ''}})
-  //   @formatter.format("[list: title='Some information in a list'
-  //     - Item 1
-  //     - Item 2
-  //     - Item 3
-  //   ]").should == "<ul><h1>Some information in a list</h1><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>"
-  // end
-  // 
-  // it "should parse lists with nested tags and links" do
-  //   @formatter << Enml::ListInterpreter.new({:name => "list", :template => "<ul><h1>%title</h1>%tc</ul>", :attributes => {:title => ''}})
-  //   @formatter.format("[list: title='Some information in a list'
-  //     - Item 1
-  //     - [red: [1: Item 2]]
-  //     - Item 3
-  //   ][1: http://www.example.com]").should == "<ul><h1>Some information in a list</h1><li>Item 1</li><li><span class='red'><a href='http://www.example.com'>Item 2</a></span></li><li>Item 3</li></ul>"
-  // end
+
 });
