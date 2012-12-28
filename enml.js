@@ -1,5 +1,6 @@
-(function( scope ){
-
+(function(boot){
+    typeof exports === 'undefined' ? (function namespace(){ var backup = window.ENML; boot( window.ENML = { noConflict: function(){ var lib = window.ENML; window.ENML = backup; return lib; } } ) })() : boot( exports );
+})(function( scope ){
 
   /**
    *  Shallow copy, simple non-recursive utility function for copying key/value pairs.
@@ -25,6 +26,7 @@
    *  @param {string}
    *  @returns {object} whitespace trimmed input
    **/
+
   function trim(string){
 
     r = string;
@@ -32,25 +34,6 @@
       r = r.replace(/^\s+|\s+$/g, '');
     }
     return r;
-  };
-
-
-
-  // init vars
-  var nsBackup = scope.ENML
-    , ENML = {}
-    ;
-      
-  /**
-   *  Restores ENML namespace to pre-initialization state.
-   *  
-   *  @returns {object} ENML
-   *
-   **/
-
-  ENML.noConflict = function(){
-    scope.ENML = nsBackup;
-    return ENML;
   };
 
   /**
@@ -63,7 +46,7 @@
    *
    **/
 
-   ENML.parser = function Parser(customSyntax){
+   scope.parser = function Parser(customSyntax){
 
     // init
     var p = this, 
@@ -222,8 +205,8 @@
      *
      **/
 
-    p.parse = function(enml){
-      _buffer = enml;
+    p.parse = function(input){
+      _buffer = input;
       _builder = new Builder();
       while(_buffer){
         consume();
@@ -260,9 +243,9 @@
    *  @returns {object} ENML DSL parser & dynamic definition engine
    **/
 
-  ENML.grammar = function Grammar(name, customSyntax){
+  scope.grammar = function Grammar(name, customSyntax){
     var g = this,
-      _parser = new ENML.parser(customSyntax),
+      _parser = new scope.parser(customSyntax),
       _callbacks = {
         starting: {},
         exiting: {}
@@ -352,7 +335,7 @@
      **/
 
     g.syntax = function(open_code, close_code){
-      _parser = new ENML.parser({ 
+      _parser = new scope.parser({ 
         open: new RegExp("^\\s*"+open_code),
         closed: new RegExp("^\\s*"+close_code),
         text: new RegExp("^(\\s*"+"[^"+open_code+close_code+"]+)") });
@@ -459,9 +442,9 @@
      *  @returns {object} final HTML output
      **/
 
-    g.parse = function(enml, context){
+    g.parse = function(input, context){
       sources = {};
-      var nodes = _parser.parse(enml);
+      var nodes = _parser.parse(input);
       var last = nodes.length-1;
       if(nodes[last].is === 'reference'){
         var collecting = true
@@ -539,7 +522,4 @@
     
   }
 
-  // write ENML to `scope`, global by default.
-  scope.ENML = ENML;
-
-})( window );
+});
