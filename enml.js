@@ -1,3 +1,14 @@
+/*!
+ * ENML JavaScript Library v0.5
+ * http://github.com/danielmendel/enml.js
+ *
+ * Copyright 2010-2012, Daniel Espeset
+ * MIT License.
+ * http://github.com/danielmendel/enml.js/master/MIT-LICENSE.txt
+ *
+ * Date: Fri Dec 28 3:37:48 2012 -0700
+ */
+ 
 (function(boot){
     typeof exports === 'undefined' ? (function namespace(){ var backup = window.ENML; boot( window.ENML = { noConflict: function(){ var lib = window.ENML; window.ENML = backup; return lib; } } ) })() : boot( exports );
 })(function( scope ){
