@@ -82,7 +82,7 @@
     
     // syntax modifications may be passed to the parser on creation.  
     if( typeof customSyntax !== 'undefined' ) 
-        ENML.shallowCopy(syn, customSyntax);
+        shallowCopy(syn, customSyntax);
     
     /**
      *  Build a new tree node.
@@ -260,9 +260,9 @@
    *  @returns {object} ENML DSL parser & dynamic definition engine
    **/
 
-  ENML.grammar = function Grammar(name){
+  ENML.grammar = function Grammar(name, customSyntax){
     var g = this,
-      _parser = new ENML.parser(),
+      _parser = new ENML.parser(customSyntax),
       _callbacks = {
         starting: {},
         exiting: {}

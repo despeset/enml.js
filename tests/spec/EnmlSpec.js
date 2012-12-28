@@ -174,4 +174,15 @@ describe('Enml Parser', function(){
     .toEqual("[not a <div class='foo'>tag</div>]");
   });
 
+  it('should support syntax customization', function(){
+    var mydsl = new ENML.grammar('myDsl',{ open:    /^\s*%%%-/,
+                                           closed:  /^\s*-%%%/,
+                                           escaped: /^\s*%%%-\s*\//,
+                                           text:    /(^\s*[^-%])/ });
+    mydsl.define('foo')
+        .as.cssProxy('div');
+    expect(mydsl.parse("%%%-foo:bar-%%%"))
+    .toEqual("<div class='foo'>bar</div>");
+  });
+
 });
