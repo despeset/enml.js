@@ -1,4 +1,4 @@
-`ENML` ( let's stay it's pronounced `enamel` ) is a simple, extensible `Domain Specific Markup Language` toolkit for creating customized `DSML`.  I wrote it for a project that required some custom display tags to augment a `Markdown` driven backend and to learn about simple `LR` recursive-decent parsing.
+`ENML` ( let's pronounce it `enamel` ) is a simple, extensible `Domain Specific Markup Language` toolkit for creating customized `DSML`.  I wrote it for a project that required some custom display tags to augment a `Markdown` driven backend and to learn about simple `LR` recursive-decent parsing.
 
 1. create `dsl`
 
