@@ -21,7 +21,7 @@ Defining tags
 	dsl.define('foo')
 	   .as('<div class="foo">%TC</div>');
 
-they can have attributes
+they can have attributes with defaults
 
 	dsl.define('foo')
 	   .plus({ color: '#f00' })

@@ -12,7 +12,7 @@
 (function(boot){
     typeof exports === 'undefined' ? (function namespace(){ var backup = window.ENML; boot( window.ENML = { noConflict: function(){ var lib = window.ENML; window.ENML = backup; return lib; } } ) })() : boot( exports );
 })(function( scope ){
-
+  'use strict';
   /**
    *  Shallow copy, simple non-recursive utility function for copying key/value pairs.
    *
@@ -24,7 +24,7 @@
 
   function shallowCopy(to, fr){ 
     if( typeof to === 'undefined' || typeof fr === 'undefined' ) return false;
-    for(k in fr){
+    for( var k in fr){
       to[k] = fr[k];
     }
     return to;
@@ -39,8 +39,7 @@
    **/
 
   function trim(string){
-
-    r = string;
+    var r = string;
     if(r.match(/^\s+|\s+$/g)){
       r = r.replace(/^\s+|\s+$/g, '');
     }
@@ -75,8 +74,7 @@
         };
     
     // syntax modifications may be passed to the parser on creation.  
-    if( typeof customSyntax !== 'undefined' ) 
-        shallowCopy(syn, customSyntax);
+    if( arguments.length ) shallowCopy(syn, customSyntax);
     
     /**
      *  Build a new tree node.
@@ -107,33 +105,32 @@
      **/
     
     function Builder(){
-      var b = this,
-      current_node = new Node('', 'root', null);
+      var b = this;
       
-      b.root = current_node;
+      b.current_node = b.root = new Node('', 'root', null);
       
       b.open = function(name){
-        node = new Node(name, 'tag', current_node);
+        var node = new Node(name, 'tag', b.current_node);
         if(name.match(syn.reference)) node.is = 'reference';
         if(name === '__esc') node.is = 'escaped';
-        current_node.children.push(node);
-        current_node = node;
+        b.current_node.children.push(node);
+        b.current_node = node;
       }
 
       b.set = function(key, val){
-        current_node.is = "attr_tag";
-        current_node.attr[key] = val;
+        b.current_node.is = "attr_tag";
+        b.current_node.attr[key] = val;
       }
       
       b.add = function(content){
-        current_node.children.push(new Node(content, 'text', current_node));
+        b.current_node.children.push(new Node(content, 'text', b.current_node));
       }
       
       b.close = function(){
-        if(current_node.parent){
-          current_node = current_node.parent;
-        }
+        if(b.current_node.parent)
+           b.current_node = b.current_node.parent;
       }
+
       return b;      
     };
 
@@ -216,12 +213,13 @@
      *
      **/
 
-    p.parse = function(input){
+    p.parse = function(input){ 
       _buffer = input;
       _builder = new Builder();
       while(_buffer){
         consume();
       }
+      if(_builder.current_node !== _builder.root) throw("ENML tag '"+_builder.current_node.val+"' was not closed.");
       return _builder.root.children;
     };
     
@@ -368,7 +366,7 @@
         if(arguments > 1) g.indefinite.aliases = arguments.slice(1);
       }
       if( typeof tagname === 'object' ){
-        for( tag in tagname ){
+        for( var tag in tagname ){
           g.indefinite = new Definition( tag, tagname[tag] );
           g.indefinite.force = true;
           _define_indefinite();
@@ -489,6 +487,7 @@
             o += g.definitions.__esc.template.replace('%TC', trim(render(child.children, context)));
             break;
           case "tag":
+            if( !g.definitions[child.val] ) throw("ENML tag '"+child.val+"' is not defined.");
             o += g.definitions[child.val].template.replace('%TC', trim(render(child.children, context)));
             break;
           case "reference":
@@ -501,7 +500,7 @@
                 , definition = g.definitions[child.val];
               context = context || {};
               args.tc = trim(render(child.children, context ));
-              for( k in definition.attr ){
+              for( var k in definition.attr ){
                 if( definition.attr.hasOwnProperty(k) ){
                   if( typeof definition.attr[k] === 'object' && definition.attr[k].hasOwnProperty('defaults_to') )
                     args[k] = child.attr[k] || definition.attr[k].defaults_to;
@@ -514,7 +513,7 @@
             }
             // default, process normal template
             var r = g.definitions[child.val].template.replace('%TC', trim(render(child.children, context)));
-            for(arg in child.attr){
+            for(var arg in child.attr){
               r = r.replace("%"+arg.toUpperCase(), child.attr[arg]);
             }
             o += r;
@@ -529,7 +528,7 @@
   
     // define some internally used core grammar utilities.
     g.define('__ref').as("<a href='%REF'>%TC</a>");
-    g.define('__esc').as("[%TC]");
+    g.define('__esc').as("[%TC]"); // \[ escaped brackets \] [__esc: escaped brakets ] => [ ]
     
   }
 

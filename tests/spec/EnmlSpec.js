@@ -179,6 +179,25 @@ describe('Enml Parser', function(){
     .toEqual("[not a <div class='foo'>tag</div>]");
   });
 
+  it('should not choke on unclosed tags in middle of valid input', function(){
+    expect(mydsl.parse("[foo: bar][[foo: bar2]"))
+    .toEqual("<div class='foo'>bar</div><div class='foo'>bar2</div>")
+  });
+
+  it('should not choke on unclosed tags at end of valid input', function(){
+    expect(mydsl.parse("[foo: bar]["))
+    .toEqual("<div class='foo'>bar</div>")
+  });
+
+  it('should throw an error if unclosed valid tag', function(){
+    expect(function(){ mydsl.parse("[foo: abc") }).toThrow("ENML tag 'foo' was not closed.");
+
+  });
+
+  it('should thow a tag not defined error for undefined names', function(){
+    expect(function(){ mydsl.parse("[not: abc]") }).toThrow("ENML tag 'not' is not defined.");
+  })
+
   it('should support syntax customization', function(){
     var mydsl = new ENML.grammar('myDsl',{ open:    /^\s*%%%-/,
                                            closed:  /^\s*-%%%/,
@@ -189,5 +208,7 @@ describe('Enml Parser', function(){
     expect(mydsl.parse("%%%-foo:bar-%%%"))
     .toEqual("<div class='foo'>bar</div>");
   });
+
+
 
 });
