@@ -89,4 +89,4 @@ More Info
 ============
 
 The `enml.js` source code is commented in a modified `jsDoc` format and should be easy to follow.
-For more information on the API specifics, have a look through the [`Jasmine`](http://pivotal.github.com/jasmine/) specs `tests/spec/EnmlSpec.js`.  A formal definition of the `ENML` grammar in Bakaus Backus–Naur Form is available in `docs/enml_grammar.bnf`.
+For more information on the API specifics, have a look through the [`Jasmine`](https://jasmine.github.io/) specs `tests/spec/EnmlSpec.js`.  A formal definition of the `ENML` grammar in Bakaus Backus–Naur Form is available in `docs/enml_grammar.bnf`.
